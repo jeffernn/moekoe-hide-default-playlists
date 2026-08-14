@@ -39,7 +39,7 @@
         display: none !important;
       }
 
-      /* 悬浮配置触发按钮 */
+      /* 悬浮配置触发按钮（默认隐藏，仅在音乐库页面显示，全屏播放/歌词页隐藏） */
       .moekoe-hide-playlist-trigger {
         position: fixed;
         bottom: 85px;
@@ -51,7 +51,7 @@
         background: rgba(26, 30, 36, 0.88);
         border: 1px solid rgba(56, 189, 248, 0.3);
         color: #e0f2fe;
-        display: flex;
+        display: none;
         align-items: center;
         justify-content: center;
         cursor: pointer;
@@ -60,6 +60,17 @@
         backdrop-filter: blur(10px);
         transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         user-select: none;
+      }
+      body:has(.library-page) .moekoe-hide-playlist-trigger,
+      body[data-moekoe-page="library"] .moekoe-hide-playlist-trigger {
+        display: flex;
+      }
+      /* 全屏播放/歌词界面/视频播放页强制隐藏 */
+      body:has(.lyrics-bg) .moekoe-hide-playlist-trigger,
+      body:has(.lyrics-container) .moekoe-hide-playlist-trigger,
+      body:has(.video-player-page) .moekoe-hide-playlist-trigger,
+      body[data-moekoe-playing="1"] .moekoe-hide-playlist-trigger {
+        display: none !important;
       }
       .moekoe-hide-playlist-trigger:hover {
         background: rgba(30, 41, 59, 0.95);

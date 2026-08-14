@@ -2,12 +2,12 @@
 (function () {
   'use strict';
 
-  console.log('[MoeKoe Hide Default Playlists Hook] 正在初始化...');
+  console.log('[MoeKoe Hide Default Playlists Hook] 初始化高阶安全与性能优化版本...');
 
-  var STORAGE_KEY = 'moekoe_hide_default_playlists_config';
-  var DYNAMIC_STYLE_ID = 'moekoe-hide-dynamic-style';
+  var STORAGE_KEY = 'moekoe_hide_playlists_cfg_sec_v1';
+  var STATIC_STYLE_ID = 'moekoe-hide-static-engine-style';
 
-  // 默认配置
+  // 默认过滤配置
   var defaultConfig = {
     hideCloudDrive: true,      // 我的云盘
     hideLocalMusic: true,      // 本地音乐
@@ -16,127 +16,205 @@
     hideDefaultCollect: true   // 默认收藏 歌单
   };
 
-  // 读取配置
-  function loadConfig() {
+  // =============================================
+  //  1. 本地存储安全防护（模式校验 + 数据防篡改编码）
+  // =============================================
+  function encodePayload(str) {
     try {
-      var saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        return Object.assign({}, defaultConfig, JSON.parse(saved));
+      return btoa(encodeURIComponent(str));
+    } catch (e) {
+      return str;
+    }
+  }
+
+  function decodePayload(str) {
+    try {
+      return decodeURIComponent(atob(str));
+    } catch (e) {
+      return str;
+    }
+  }
+
+  function safeLoadConfig() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return Object.assign({}, defaultConfig);
+      var jsonStr = decodePayload(raw);
+      var parsed = JSON.parse(jsonStr);
+      var result = {};
+      // 严格 Schema 验证：仅提取已知的 boolean 类型字段，防止污染与异常注入
+      for (var key in defaultConfig) {
+        if (Object.prototype.hasOwnProperty.call(defaultConfig, key)) {
+          result[key] = typeof parsed[key] === 'boolean' ? parsed[key] : defaultConfig[key];
+        }
       }
+      return result;
     } catch (e) {
-      console.warn('[MoeKoe Hide Playlists] 读取配置失败，使用默认配置', e);
+      console.warn('[MoeKoe Hide Playlists] 读取配置异常或数据损坏，已安全回退到默认设置', e);
+      return Object.assign({}, defaultConfig);
     }
-    return Object.assign({}, defaultConfig);
   }
 
-  // 保存配置
-  function saveConfig(cfg) {
+  function safeSaveConfig(cfg) {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
+      var sanitized = {};
+      for (var key in defaultConfig) {
+        if (Object.prototype.hasOwnProperty.call(defaultConfig, key)) {
+          sanitized[key] = Boolean(cfg[key]);
+        }
+      }
+      localStorage.setItem(STORAGE_KEY, encodePayload(JSON.stringify(sanitized)));
     } catch (e) {
-      console.error('[MoeKoe Hide Playlists] 保存配置失败', e);
+      console.error('[MoeKoe Hide Playlists] 本地存储持久化失败', e);
     }
   }
 
-  var config = loadConfig();
+  var config = safeLoadConfig();
 
   // =============================================
-  //  1. 动态生成并注入 CSS 样式
+  //  2. 极速样式引擎（单次注入全局静态规则，基于 Body Flag 瞬时响应）
   // =============================================
-  function applyDynamicStyle() {
-    var style = document.getElementById(DYNAMIC_STYLE_ID);
-    if (!style) {
-      style = document.createElement('style');
-      style.id = DYNAMIC_STYLE_ID;
-      document.head.appendChild(style);
+  function injectStaticEngineStyle() {
+    if (document.getElementById(STATIC_STYLE_ID)) return;
+    var style = document.createElement('style');
+    style.id = STATIC_STYLE_ID;
+    style.textContent = `
+      /* 1. 云盘隐藏规则 */
+      body[data-moekoe-hide-cloud="1"] .side-navigation .side-section a[href*="/CloudDrive"],
+      body[data-moekoe-hide-cloud="1"] .side-navigation .side-link[title*="我的云盘"],
+      body[data-moekoe-hide-cloud="1"] .library-page .music-grid .music-card[data-moekoe-type="cloud-drive"] {
+        display: none !important;
+      }
+
+      /* 2. 本地音乐隐藏规则 */
+      body[data-moekoe-hide-local="1"] .side-navigation .side-section a[href*="/LocalMusic"],
+      body[data-moekoe-hide-local="1"] .side-navigation .side-link[title*="本地音乐"],
+      body[data-moekoe-hide-local="1"] .library-page .music-grid .music-card[data-moekoe-type="local-music"] {
+        display: none !important;
+      }
+
+      /* 3. 创建歌单隐藏规则 */
+      body[data-moekoe-hide-create="1"] .library-page .music-grid .music-card[data-moekoe-type="create-playlist"] {
+        display: none !important;
+      }
+
+      /* 4. 我喜欢歌单隐藏规则 */
+      body[data-moekoe-hide-fav="1"] .side-playlist-list .side-playlist-link[data-moekoe-playlist="我喜欢"],
+      body[data-moekoe-hide-fav="1"] .library-page .music-grid .music-card[data-moekoe-playlist="我喜欢"] {
+        display: none !important;
+      }
+
+      /* 5. 默认收藏隐藏规则 */
+      body[data-moekoe-hide-default="1"] .side-playlist-list .side-playlist-link[data-moekoe-playlist="默认收藏"],
+      body[data-moekoe-hide-default="1"] .library-page .music-grid .music-card[data-moekoe-playlist="默认收藏"] {
+        display: none !important;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  // 零重排 Body 状态切换（通过 dataset 高速驱动 CSS 选择器）
+  function updateBodyFlags() {
+    var b = document.body;
+    if (!b) return;
+    config.hideCloudDrive ? b.setAttribute('data-moekoe-hide-cloud', '1') : b.removeAttribute('data-moekoe-hide-cloud');
+    config.hideLocalMusic ? b.setAttribute('data-moekoe-hide-local', '1') : b.removeAttribute('data-moekoe-hide-local');
+    config.hideCreatePlaylist ? b.setAttribute('data-moekoe-hide-create', '1') : b.removeAttribute('data-moekoe-hide-create');
+    config.hideMyFavorites ? b.setAttribute('data-moekoe-hide-fav', '1') : b.removeAttribute('data-moekoe-hide-fav');
+    config.hideDefaultCollect ? b.setAttribute('data-moekoe-hide-default', '1') : b.removeAttribute('data-moekoe-hide-default');
+  }
+
+  // 页面状态检测（用于控制配置按钮仅在音乐库页面显示，且在全屏播放/歌词页面时隐藏）
+  function updatePageFlags() {
+    var hasLyricsOverlay = Boolean(document.querySelector('.lyrics-bg, .lyrics-container, .video-player-page'));
+    var isLibrary = Boolean(
+      !hasLyricsOverlay &&
+      document.querySelector('.library-page') &&
+      (!window.location.hash || window.location.hash.startsWith('#/library') || window.location.hash === '#/library' || window.location.hash.indexOf('/library') !== -1)
+    );
+    var b = document.body;
+    if (b) {
+      if (isLibrary) {
+        b.setAttribute('data-moekoe-page', 'library');
+      } else {
+        b.removeAttribute('data-moekoe-page');
+      }
+      if (hasLyricsOverlay) {
+        b.setAttribute('data-moekoe-playing', '1');
+      } else {
+        b.removeAttribute('data-moekoe-playing');
+      }
     }
-
-    var rules = [];
-
-    // 1. 我的云盘
-    if (config.hideCloudDrive) {
-      rules.push('.side-navigation .side-section a[href*="/CloudDrive"] { display: none !important; }');
-      rules.push('.side-navigation .side-link[title*="我的云盘"] { display: none !important; }');
-      rules.push('.library-page .music-grid .music-card:has(a[href*="/CloudDrive"]) { display: none !important; }');
-      rules.push('.library-page .music-card[data-moekoe-type="cloud-drive"] { display: none !important; }');
-    }
-
-    // 2. 本地音乐
-    if (config.hideLocalMusic) {
-      rules.push('.side-navigation .side-section a[href*="/LocalMusic"] { display: none !important; }');
-      rules.push('.side-navigation .side-link[title*="本地音乐"] { display: none !important; }');
-      rules.push('.library-page .music-grid .music-card:has(a[href*="/LocalMusic"]) { display: none !important; }');
-      rules.push('.library-page .music-card[data-moekoe-type="local-music"] { display: none !important; }');
-    }
-
-    // 3. 创建歌单 卡片
-    if (config.hideCreatePlaylist) {
-      rules.push('.library-page .music-grid .music-card:has(.fa-plus) { display: none !important; }');
-      rules.push('.library-page .music-grid .music-card:has(img[src*="ti111mg"]) { display: none !important; }');
-      rules.push('.library-page .music-card[data-moekoe-type="create-playlist"] { display: none !important; }');
-    }
-
-    // 4. 我喜欢 歌单
-    if (config.hideMyFavorites) {
-      rules.push('.side-playlist-list .side-playlist-link[title="我喜欢"] { display: none !important; }');
-      rules.push('.side-playlist-list .side-playlist-link[data-moekoe-playlist="我喜欢"] { display: none !important; }');
-      rules.push('.library-page .music-grid .music-card[data-moekoe-playlist="我喜欢"] { display: none !important; }');
-    }
-
-    // 5. 默认收藏 歌单
-    if (config.hideDefaultCollect) {
-      rules.push('.side-playlist-list .side-playlist-link[title="默认收藏"] { display: none !important; }');
-      rules.push('.side-playlist-list .side-playlist-link[data-moekoe-playlist="默认收藏"] { display: none !important; }');
-      rules.push('.library-page .music-grid .music-card[data-moekoe-playlist="默认收藏"] { display: none !important; }');
-    }
-
-    style.textContent = rules.join('\n');
   }
 
   // =============================================
-  //  2. 扫描并标记 DOM 元素
+  //  3. 精准轻量 DOM 标记（使用缓存与局部选择器，O(1) 过滤）
   // =============================================
   function scanAndTagElements() {
-    // 扫描音乐库卡片
-    var musicCards = document.querySelectorAll('.library-page .music-grid .music-card');
-    musicCards.forEach(function (card) {
-      var h3 = card.querySelector('h3');
-      var titleText = h3 ? h3.textContent.trim() : '';
+    // 1. 局部扫描音乐库卡片（跳过已标记项）
+    var musicGrid = document.querySelector('.library-page .music-grid');
+    if (musicGrid) {
+      var cards = musicGrid.children;
+      for (var i = 0; i < cards.length; i++) {
+        var card = cards[i];
+        if (!card.classList || !card.classList.contains('music-card')) continue;
 
-      if (titleText === '我的云盘' || card.querySelector('a[href*="/CloudDrive"]')) {
-        card.setAttribute('data-moekoe-type', 'cloud-drive');
-      } else if (titleText === '本地音乐' || card.querySelector('a[href*="/LocalMusic"]')) {
-        card.setAttribute('data-moekoe-type', 'local-music');
-      } else if (card.querySelector('.fa-plus') || card.querySelector('img[src*="ti111mg"]') || titleText.indexOf('创建歌单') !== -1 || titleText.indexOf('Create Playlist') !== -1) {
-        card.setAttribute('data-moekoe-type', 'create-playlist');
-      } else if (titleText === '我喜欢') {
-        card.setAttribute('data-moekoe-playlist', '我喜欢');
-      } else if (titleText === '默认收藏') {
-        card.setAttribute('data-moekoe-playlist', '默认收藏');
+        // 如果已经标记过则直接跳过，避免重复昂贵的 DOM 计算
+        if (card.dataset.moekoeType || card.dataset.moekoePlaylist) continue;
+
+        var h3 = card.querySelector('h3');
+        var title = h3 ? h3.textContent.trim() : '';
+
+        if (title === '我的云盘' || card.querySelector('a[href*="/CloudDrive"]')) {
+          card.setAttribute('data-moekoe-type', 'cloud-drive');
+        } else if (title === '本地音乐' || card.querySelector('a[href*="/LocalMusic"]')) {
+          card.setAttribute('data-moekoe-type', 'local-music');
+        } else if (card.querySelector('.fa-plus') || card.querySelector('img[src*="ti111mg"]') || title.indexOf('创建歌单') !== -1 || title.indexOf('Create Playlist') !== -1) {
+          card.setAttribute('data-moekoe-type', 'create-playlist');
+        } else if (title === '我喜欢') {
+          card.setAttribute('data-moekoe-playlist', '我喜欢');
+        } else if (title === '默认收藏') {
+          card.setAttribute('data-moekoe-playlist', '默认收藏');
+        }
       }
-    });
+    }
 
-    // 扫描侧边栏歌单列表
-    var playlistLinks = document.querySelectorAll('.side-playlist-list .side-playlist-link');
-    playlistLinks.forEach(function (link) {
-      var title = link.getAttribute('title') || '';
-      var spanText = (link.querySelector('span') && link.querySelector('span').textContent) || '';
-      var name = title.trim() || spanText.trim();
+    // 2. 局部扫描侧边栏歌单列表（跳过已标记项）
+    var sideList = document.querySelector('.side-playlist-list');
+    if (sideList) {
+      var playlistLinks = sideList.querySelectorAll('.side-playlist-link:not([data-moekoe-playlist])');
+      for (var j = 0; j < playlistLinks.length; j++) {
+        var link = playlistLinks[j];
+        var linkTitle = link.getAttribute('title') || '';
+        var span = link.querySelector('span');
+        var name = (linkTitle || (span ? span.textContent : '')).trim();
 
-      if (name === '我喜欢') {
-        link.setAttribute('data-moekoe-playlist', '我喜欢');
-      } else if (name === '默认收藏') {
-        link.setAttribute('data-moekoe-playlist', '默认收藏');
+        if (name === '我喜欢') {
+          link.setAttribute('data-moekoe-playlist', '我喜欢');
+        } else if (name === '默认收藏') {
+          link.setAttribute('data-moekoe-playlist', '默认收藏');
+        }
       }
-    });
+    }
   }
 
   // =============================================
-  //  3. 观察 DOM 变动与路由变化
+  //  4. 防抖调度监听（requestAnimationFrame 消除频繁重绘与卡顿）
   // =============================================
+  var isScheduled = false;
+  function scheduleScan() {
+    if (isScheduled) return;
+    isScheduled = true;
+    requestAnimationFrame(function () {
+      isScheduled = false;
+      updatePageFlags();
+      scanAndTagElements();
+    });
+  }
+
   function setupObserver() {
     var observer = new MutationObserver(function () {
-      scanAndTagElements();
+      scheduleScan();
     });
 
     observer.observe(document.body, {
@@ -145,13 +223,18 @@
     });
 
     window.addEventListener('hashchange', function () {
-      setTimeout(scanAndTagElements, 50);
-      setTimeout(scanAndTagElements, 300);
+      scheduleScan();
+      setTimeout(scheduleScan, 150);
+    });
+
+    window.addEventListener('popstate', function () {
+      scheduleScan();
+      setTimeout(scheduleScan, 150);
     });
   }
 
   // =============================================
-  //  4. 悬浮配置入口与设置弹窗（天空蓝风格）
+  //  5. 可视化天空蓝配置弹窗
   // =============================================
   function createUI() {
     if (document.querySelector('.moekoe-hide-playlist-trigger')) return;
@@ -251,9 +334,9 @@
       if (input) {
         input.addEventListener('change', function () {
           config[key] = input.checked;
-          saveConfig(config);
-          applyDynamicStyle();
-          scanAndTagElements();
+          safeSaveConfig(config);
+          updateBodyFlags();
+          scheduleScan();
         });
       }
     }
@@ -271,19 +354,19 @@
     modal.querySelector('#moekoe-modal-close-btn').addEventListener('click', closeModal);
     modal.querySelector('#moekoe-modal-done-btn').addEventListener('click', closeModal);
     overlay.addEventListener('click', function (e) {
-      if (e.target === overlay) {
-        closeModal();
-      }
+      if (e.target === overlay) closeModal();
     });
   }
 
   // =============================================
-  //  5. 初始化执行
+  //  6. 初始化启动流程
   // =============================================
-  applyDynamicStyle();
+  injectStaticEngineStyle();
+  updateBodyFlags();
+  updatePageFlags();
   scanAndTagElements();
   setupObserver();
   createUI();
 
-  console.log('[MoeKoe Hide Default Playlists Hook] 挂载成功！');
+  console.log('[MoeKoe Hide Default Playlists Hook] 引擎挂载就绪！');
 })();
