@@ -3,7 +3,7 @@
   "plugin_id": "moekoe-hide-default-playlists",
   "name": "MoeKoe 隐藏默认歌单",
   "version": "1.0.2",
-  "description": "安全、高效地隐藏音乐库与侧边栏中的默认歌单及入口（我的云盘、本地音乐、创建歌单、我喜欢、默认收藏等），支持天空蓝可视化配置。",
+  "description": "隐藏音乐库与侧边栏中软件自带的的默认歌单及入口（我的云盘、本地音乐、创建歌单、我喜欢、默认收藏），支持隐藏筛选配置。",
   "author": "Jeffern",
   "minversion": null,
   "moekoe": true,
