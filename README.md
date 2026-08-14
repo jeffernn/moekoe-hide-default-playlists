@@ -4,6 +4,11 @@
 
 ---
 
+-- <img width="449" height="503" alt="image" src="https://github.com/user-attachments/assets/e0f3dddf-4d11-495d-bf88-1092639bbcc9" />
+-- <img width="968" height="346" alt="image" src="https://github.com/user-attachments/assets/6bd99eb2-8c9f-44da-8c94-0414f0b980fa" />
+
+
+
 ## 一、 项目分析与默认歌单机制
 
 **基于 **Vue 3 + Vite + Electron + Pinia + Vue Router** 构建的桌面流媒体音乐播放器，兼容 Chrome Extension Manifest V3 扩展规范。
