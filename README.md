@@ -1,6 +1,4 @@
-# MoeKoe Music 隐藏默认歌单插件开发与使用指南
-
-本文档全面梳理了 **MoeKoe Music** 软件内部音乐库及侧边栏默认歌单与快捷入口的生成逻辑，并详细记录了新插件 **`moekoe-hide-default-playlists`** 的设计方案、源码实现与安装使用方法。
+# MoeKoe Music 隐藏默认歌单插件使用指南
 
 ---
 
