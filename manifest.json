@@ -5,7 +5,7 @@
   "version": "1.0.1",
   "description": "智能隐藏音乐库与侧边栏中的默认歌单及入口（我的云盘、本地音乐、创建歌单、我喜欢、默认收藏等），并提供实时配置菜单。",
   "author": "Jeffern",
-  "minversion": "1.6.6",
+  "minversion": null,
   "moekoe": true,
   "permissions": [],
   "host_permissions": ["<all_urls>", "file:///*"],
