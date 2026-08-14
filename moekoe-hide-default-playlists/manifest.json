@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "plugin_id": "moekoe-hide-default-playlists",
+  "name": "MoeKoe 隐藏默认歌单",
+  "version": "1.0.0",
+  "description": "智能隐藏音乐库与侧边栏中的默认歌单及入口（我的云盘、本地音乐、我喜欢、默认收藏等），并提供实时配置菜单。",
+  "author": "Jeffern",
+  "minversion": null,
+  "moekoe": true,
+  "permissions": [],
+  "host_permissions": ["<all_urls>", "file:///*"],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>", "file:///*"],
+      "js": ["content.js"],
+      "run_at": "document_end",
+      "all_frames": false
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["hook.js"],
+      "matches": ["<all_urls>", "file:///*"]
+    }
+  ]
+}
