@@ -11,9 +11,9 @@
   var defaultConfig = {
     hideCloudDrive: true,      // 我的云盘
     hideLocalMusic: true,      // 本地音乐
+    hideCreatePlaylist: true,  // 创建歌单
     hideMyFavorites: true,     // 我喜欢 歌单
-    hideDefaultCollect: true,  // 默认收藏 歌单
-    hideListenSection: false   // 音乐库顶部「我喜欢听」区域
+    hideDefaultCollect: true   // 默认收藏 歌单
   };
 
   // 读取配置
@@ -55,44 +55,39 @@
 
     // 1. 我的云盘
     if (config.hideCloudDrive) {
-      // 侧边栏
       rules.push('.side-navigation .side-section a[href*="/CloudDrive"] { display: none !important; }');
       rules.push('.side-navigation .side-link[title*="我的云盘"] { display: none !important; }');
-      // 音乐库卡片
       rules.push('.library-page .music-grid .music-card:has(a[href*="/CloudDrive"]) { display: none !important; }');
       rules.push('.library-page .music-card[data-moekoe-type="cloud-drive"] { display: none !important; }');
     }
 
     // 2. 本地音乐
     if (config.hideLocalMusic) {
-      // 侧边栏
       rules.push('.side-navigation .side-section a[href*="/LocalMusic"] { display: none !important; }');
       rules.push('.side-navigation .side-link[title*="本地音乐"] { display: none !important; }');
-      // 音乐库卡片
       rules.push('.library-page .music-grid .music-card:has(a[href*="/LocalMusic"]) { display: none !important; }');
       rules.push('.library-page .music-card[data-moekoe-type="local-music"] { display: none !important; }');
     }
 
-    // 3. 我喜欢 歌单
+    // 3. 创建歌单 卡片
+    if (config.hideCreatePlaylist) {
+      rules.push('.library-page .music-grid .music-card:has(.fa-plus) { display: none !important; }');
+      rules.push('.library-page .music-grid .music-card:has(img[src*="ti111mg"]) { display: none !important; }');
+      rules.push('.library-page .music-card[data-moekoe-type="create-playlist"] { display: none !important; }');
+    }
+
+    // 4. 我喜欢 歌单
     if (config.hideMyFavorites) {
-      // 侧边栏
       rules.push('.side-playlist-list .side-playlist-link[title="我喜欢"] { display: none !important; }');
       rules.push('.side-playlist-list .side-playlist-link[data-moekoe-playlist="我喜欢"] { display: none !important; }');
-      // 音乐库歌单卡片
       rules.push('.library-page .music-grid .music-card[data-moekoe-playlist="我喜欢"] { display: none !important; }');
     }
 
-    // 4. 默认收藏 歌单
+    // 5. 默认收藏 歌单
     if (config.hideDefaultCollect) {
       rules.push('.side-playlist-list .side-playlist-link[title="默认收藏"] { display: none !important; }');
       rules.push('.side-playlist-list .side-playlist-link[data-moekoe-playlist="默认收藏"] { display: none !important; }');
-      // 音乐库歌单卡片
       rules.push('.library-page .music-grid .music-card[data-moekoe-playlist="默认收藏"] { display: none !important; }');
-    }
-
-    // 5. 音乐库「我喜欢听」历史区域
-    if (config.hideListenSection) {
-      rules.push('.library-page .favorite-header, .library-page .favorite-section { display: none !important; }');
     }
 
     style.textContent = rules.join('\n');
@@ -112,6 +107,8 @@
         card.setAttribute('data-moekoe-type', 'cloud-drive');
       } else if (titleText === '本地音乐' || card.querySelector('a[href*="/LocalMusic"]')) {
         card.setAttribute('data-moekoe-type', 'local-music');
+      } else if (card.querySelector('.fa-plus') || card.querySelector('img[src*="ti111mg"]') || titleText.indexOf('创建歌单') !== -1 || titleText.indexOf('Create Playlist') !== -1) {
+        card.setAttribute('data-moekoe-type', 'create-playlist');
       } else if (titleText === '我喜欢') {
         card.setAttribute('data-moekoe-playlist', '我喜欢');
       } else if (titleText === '默认收藏') {
@@ -159,7 +156,6 @@
   function createUI() {
     if (document.querySelector('.moekoe-hide-playlist-trigger')) return;
 
-    // 悬浮按钮
     var trigger = document.createElement('div');
     trigger.className = 'moekoe-hide-playlist-trigger';
     trigger.setAttribute('title', 'MoeKoe 歌单过滤设置');
@@ -209,6 +205,17 @@
           </div>
         </label>
 
+        <label class="moekoe-option-item" for="opt-create-playlist">
+          <div class="moekoe-option-label">
+            <span>隐藏「创建歌单」</span>
+            <span class="moekoe-option-desc">隐藏音乐库歌单列表末尾的“创建歌单”卡片</span>
+          </div>
+          <div class="moekoe-switch">
+            <input type="checkbox" id="opt-create-playlist" ${config.hideCreatePlaylist ? 'checked' : ''}>
+            <span class="moekoe-slider"></span>
+          </div>
+        </label>
+
         <label class="moekoe-option-item" for="opt-fav">
           <div class="moekoe-option-label">
             <span>隐藏「我喜欢」歌单</span>
@@ -230,17 +237,6 @@
             <span class="moekoe-slider"></span>
           </div>
         </label>
-
-        <label class="moekoe-option-item" for="opt-listen-sec">
-          <div class="moekoe-option-label">
-            <span>隐藏音乐库「我喜欢听」</span>
-            <span class="moekoe-option-desc">隐藏音乐库页面顶部的听歌历史推荐栏</span>
-          </div>
-          <div class="moekoe-switch">
-            <input type="checkbox" id="opt-listen-sec" ${config.hideListenSection ? 'checked' : ''}>
-            <span class="moekoe-slider"></span>
-          </div>
-        </label>
       </div>
       <div class="moekoe-modal-footer">
         <button class="moekoe-btn moekoe-btn-primary" id="moekoe-modal-done-btn">完成</button>
@@ -250,7 +246,6 @@
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
 
-    // 绑定事件
     function bindCheckbox(id, key) {
       var input = modal.querySelector('#' + id);
       if (input) {
@@ -265,9 +260,9 @@
 
     bindCheckbox('opt-cloud', 'hideCloudDrive');
     bindCheckbox('opt-local', 'hideLocalMusic');
+    bindCheckbox('opt-create-playlist', 'hideCreatePlaylist');
     bindCheckbox('opt-fav', 'hideMyFavorites');
     bindCheckbox('opt-default-collect', 'hideDefaultCollect');
-    bindCheckbox('opt-listen-sec', 'hideListenSection');
 
     function closeModal() {
       overlay.remove();
