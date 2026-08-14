@@ -44,7 +44,7 @@
 
 ---
 
-## 三、 插件目录与完整源码
+## 三、 插件目录
 
 插件目录位于：`plugins/extensions/moekoe-hide-default-playlists/`
 
